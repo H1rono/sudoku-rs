@@ -13,33 +13,32 @@
   outputs = { self, fenix, flake-utils, nixpkgs }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        toolchain = fenix.packages.${system}.fromToolchainFile {
+          file = ./rust-toolchain.toml;
+          sha256 = "sha256-PjvuouwTsYfNKW5Vi5Ye7y+lL7SsWGBxCtBOOm2z14c=";
+        };
+        pkgs = import nixpkgs { inherit system; };
+        rustPlatform = pkgs.makeRustPlatform
+          {
+            rustc = toolchain;
+            cargo = toolchain;
+          };
       in
       {
         # https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-fmt
         formatter = pkgs.nixpkgs-fmt;
 
         devShells.default = pkgs.mkShell {
-          packages = [
-            (fenix.packages.${system}.fromToolchainFile {
-              file = ./rust-toolchain.toml;
-              sha256 = "sha256-rLP8+fTxnPHoR96ZJiCa/5Ans1OojI7MLsmSqR2ip8o=";
-            })
-          ];
+          packages = [ toolchain ];
         };
 
         packages.default =
-          let
-            toolchain = fenix.packages.${system}.minimal.toolchain;
-          in
-          (pkgs.makeRustPlatform {
-            cargo = toolchain;
-            rustc = toolchain;
-          }).buildRustPackage {
+          rustPlatform.buildRustPackage {
             pname = "sudoku";
             version = "0.1.0";
             src = ./.;
             cargoLock.lockFile = ./Cargo.lock;
           };
-      });
+      }
+    );
 }
